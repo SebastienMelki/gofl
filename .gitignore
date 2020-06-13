@@ -1,5 +1,9 @@
 # Binaries for programs and plugins
+mobile
+api
+protos
 *.exe
+.idea
 *.exe~
 *.dll
 *.so
