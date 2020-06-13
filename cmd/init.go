@@ -18,7 +18,9 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -34,20 +36,44 @@ var initCmd = &cobra.Command{
 			fmt.Println("gofl project already initialized")
 			return
 		}
-		err := os.Mkdir("mobile", os.ModePerm)
-		fmt.Println("Created mobile directory")
+
+		path, err := os.Getwd()
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err)
+			return
 		}
 
-		err = os.Mkdir("api", os.ModePerm)
+
+		result := exec.Command("cd", path)
+
+		_, err = result.Output()
+
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		result = exec.Command("flutter", "create", "mobile")
+
+		_, err = result.Output()
+
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		fmt.Println("Created flutter project")
+
+
+
+		err = os.Mkdir(path + "/" + "api", os.ModePerm)
 		fmt.Println("Created api directory")
 
 		if err != nil {
 			fmt.Println(err.Error())
 		}
 
-		err = os.Mkdir("protos", os.ModePerm)
+		err = os.Mkdir(path + "/" + "protos", os.ModePerm)
 		fmt.Println("Created protos directory")
 		if err != nil {
 			fmt.Println(err.Error())
