@@ -53,8 +53,8 @@ var initCmd = &cobra.Command{
 			fmt.Println(err.Error())
 		}
 
-		d1 := []byte("package: " + args[0])
-		err = ioutil.WriteFile(".gofl", d1, 0644)
+		packageName := []byte("package: " + args[0])
+		err = ioutil.WriteFile(".gofl", packageName, 0644)
 
 		if err != nil {
 			fmt.Println(err.Error())
