@@ -37,15 +37,11 @@ var applyCmd = &cobra.Command{
 
 
 		err = os.Mkdir("mobile/lib/protos", os.ModePerm)
-		fmt.Println("Created mobile/lib/protos directory")
 		if err != nil {
-			fmt.Println(err.Error())
 		}
 
 		err = os.Mkdir("api/protos", os.ModePerm)
-		fmt.Println("Created api/protos directory")
 		if err != nil {
-			fmt.Println(err.Error())
 		}
 
 		result := exec.Command("bash", "-c", "protoc --go_out=plugins=grpc:" + path + "/api/protos -I" + path + "/protos " +path + "/protos/*.proto")

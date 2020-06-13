@@ -18,7 +18,6 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 
@@ -39,7 +38,6 @@ var initCmd = &cobra.Command{
 
 		path, err := os.Getwd()
 		if err != nil {
-			log.Println(err)
 			return
 		}
 
@@ -49,7 +47,6 @@ var initCmd = &cobra.Command{
 		_, err = result.Output()
 
 		if err != nil {
-			fmt.Println(err.Error())
 			return
 		}
 
@@ -62,28 +59,19 @@ var initCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Created flutter project")
-
-
 
 		err = os.Mkdir(path + "/" + "api", os.ModePerm)
-		fmt.Println("Created api directory")
-
 		if err != nil {
-			fmt.Println(err.Error())
 		}
 
 		err = os.Mkdir(path + "/" + "protos", os.ModePerm)
-		fmt.Println("Created protos directory")
 		if err != nil {
-			fmt.Println(err.Error())
 		}
 
 		packageName := []byte("package: " + args[0])
 		err = ioutil.WriteFile(".gofl", packageName, 0644)
 
 		if err != nil {
-			fmt.Println(err.Error())
 		}
 	},
 }
