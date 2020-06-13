@@ -168,7 +168,7 @@ func Run() {
 	for _, val := range services {
 		template += "\n"
 		template += "  " + strings.ToLower(val) + " := " + val + "Service{}\n"
-		template += "  " + "protos.RegisterAuthenticationServer(grpcServer, &" + strings.ToLower(val) +")\n\n"
+		template += "  " + "protos." + val + "Server(grpcServer, &" + strings.ToLower(val) +")\n\n"
 	}
 	template += `  fmt.Println("LISTENING ON PORT 7777")
 	if err := grpcServer.Serve(lis); err != nil {
