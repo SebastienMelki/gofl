@@ -27,26 +27,28 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init [APP_NAME]",
 	Short: "Create new gofl project",
-	Args:    cobra.MinimumNArgs(1),
-	Long: ``,
+	Args:  cobra.MinimumNArgs(1),
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if fileExists(".gofl") {
+		if FileExists(".gofl") {
 			fmt.Println("gofl project already initialized")
 			return
 		}
 
 		path, err := os.Getwd()
 		if err != nil {
+			fmt.Println(err.Error())
 			return
 		}
 
 		mobileInit(path)
-		apiInit(path)
+		apiInit(path, args[0])
 		protoInit(path)
 
 		packageName := []byte("package: " + args[0])
 		err = ioutil.WriteFile(".gofl", packageName, 0644)
 		if err != nil {
+			fmt.Println(err.Error())
 		}
 	},
 }
@@ -61,6 +63,7 @@ func mobileInit(path string) {
 	_, err := result.Output()
 
 	if err != nil {
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -74,21 +77,72 @@ func mobileInit(path string) {
 	}
 }
 
-func apiInit(path string) {
-	err := os.Mkdir(path + "/" + "api", os.ModePerm)
+func apiInit(path string, projectName string) {
+	err := os.Mkdir(path+"/"+"api", os.ModePerm)
 	if err != nil {
+		fmt.Println(err.Error())
 	}
 
+	result := exec.Command("bash", "-c", "cd api; go mod init "+projectName)
+
+	_, err = result.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	result = exec.Command("bash", "-c", "cd api; go get google.golang.org/grpc")
+
+	_, err = result.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	result = exec.Command("bash", "-c", "cd api; go get github.com/golang/protobuf")
+
+	_, err = result.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	generateGoMain(projectName)
+}
+
+func generateGoMain(packageName string) {
+	template :=
+		`package main
+
+import (
+	"` + packageName + `/services"
+)
+
+func main() {
+	services.Run()
+}`
+
+	if !FileExists("./api/main.go") {
+		content := []byte(template)
+		err := ioutil.WriteFile("./api/main.go", content, 0644)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}
 
 }
 
 func protoInit(path string) {
-	err := os.Mkdir(path + "/" + "protos", os.ModePerm)
+	err := os.Mkdir(path+"/"+"protos", os.ModePerm)
 	if err != nil {
+		fmt.Println(err.Error())
 	}
 }
 
-func fileExists(filename string) bool {
+func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false

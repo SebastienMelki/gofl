@@ -16,25 +16,27 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/spf13/cobra"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // applyCmd represents the apply command
 var applyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Generates code from proto files",
-	Long: ``,
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		path, err := os.Getwd()
 		if err != nil {
 			log.Println(err)
 			return
 		}
-
 
 		err = os.Mkdir("mobile/lib/protos", os.ModePerm)
 		if err != nil {
@@ -44,7 +46,7 @@ var applyCmd = &cobra.Command{
 		if err != nil {
 		}
 
-		result := exec.Command("bash", "-c", "protoc --go_out=plugins=grpc:" + path + "/api/protos -I" + path + "/protos " +path + "/protos/*.proto")
+		result := exec.Command("bash", "-c", "protoc --go_out=plugins=grpc:"+path+"/api/protos -I"+path+"/protos "+path+"/protos/*.proto")
 
 		_, err = result.Output()
 
@@ -53,7 +55,7 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		result = exec.Command("bash", "-c",  "protoc --dart_out=grpc:" + path + "/mobile/lib/protos -I" + path + "/protos " + path + "/protos/user.proto")
+		result = exec.Command("bash", "-c", "protoc --dart_out=grpc:"+path+"/mobile/lib/protos -I"+path+"/protos "+path+"/protos/user.proto")
 
 		_, err = result.Output()
 
@@ -61,10 +63,147 @@ var applyCmd = &cobra.Command{
 			fmt.Println(err.Error())
 			return
 		}
+
+		generateService(GetPackageName())
 
 	},
 }
 
+func generateService(packageName string) {
+	servicesDirectoryName := "api/services"
+	err := os.Mkdir(servicesDirectoryName, os.ModePerm)
+	if err != nil {
+	}
+
+
+	file, err := os.Open("./protos/user.proto")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	template :=
+		`package services
+
+import(
+	"context"
+	"` + packageName + `/protos"
+)`
+
+	currentService := ""
+	allTypes := ""
+	var services []string
+
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "service") {
+			tokens := strings.Split(scanner.Text(), " ")
+			currentService = tokens[1]
+			allTypes += `type ` + currentService + "Service" + ` struct{}` + "\n"
+			services = append(services, currentService)
+		}
+
+		if strings.Contains(scanner.Text(), "rpc") {
+
+			tokens := strings.Split(strings.TrimSpace(scanner.Text()), " ")
+			rpc := tokens[1]
+			input := strings.TrimPrefix(strings.TrimSuffix(tokens[2], ")"), "(")
+			output := strings.TrimPrefix(strings.TrimSuffix(tokens[4], ")"), "(")
+			serviceFile := template
+			serviceFile += "\n\n"
+			serviceFile +=
+	 			`func (s *` + currentService + "Service" + `) ` + rpc + `(ctx context.Context, in *protos.` + input + `) (*protos.` + output + `, error) {
+	return &protos.` + output + `{
+	}, nil
+}`
+			content := []byte(serviceFile)
+			fileName := strings.ToLower(rpc) + ".go"
+			if !FileExists(servicesDirectoryName + "/" + fileName) {
+				err := ioutil.WriteFile(servicesDirectoryName + "/" + fileName, content, 0644)
+				if err != nil {
+				}
+			}
+
+		}
+	}
+
+	if allTypes != "" {
+		content := []byte("package services\n" + allTypes)
+		fileName := "services.go"
+		err := ioutil.WriteFile(servicesDirectoryName + "/" + fileName, content, 0644)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	generateServerGo(packageName, services)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func generateServerGo(packageName string, services []string) {
+	template :=
+	`package services
+
+import (
+	"fmt"
+	"` + packageName + `/protos"
+	"google.golang.org/grpc"
+	"net"
+)
+
+func Run() {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 7777))
+
+	if err != nil {
+		fmt.Printf("failed to listen: %v\n", err)
+		return
+	}
+
+	grpcServer := grpc.NewServer()`
+
+	for _, val := range services {
+		template += "\n"
+		template += "  " + strings.ToLower(val) + " := " + val + "Service{}\n"
+		template += "  " + "protos.RegisterAuthenticationServer(grpcServer, &" + strings.ToLower(val) +")\n\n"
+	}
+	template += `  fmt.Println("LISTENING ON PORT 7777")
+	if err := grpcServer.Serve(lis); err != nil {
+		fmt.Printf("failed to serve: %s", err)
+		return
+	}
+}`
+
+	content := []byte(template)
+	fileName := "api/services/server.go"
+	err := ioutil.WriteFile(fileName, content, 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func init() {
 	rootCmd.AddCommand(applyCmd)
+}
+
+func GetPackageName() string {
+	file, err := os.Open(".gofl")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if strings.Contains(text, "package:") {
+			tokens := strings.Split(text, "package: ")
+			return tokens[1]
+		}
+
+	}
+	return ""
 }
