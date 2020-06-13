@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -29,6 +30,10 @@ var initCmd = &cobra.Command{
 	Args:    cobra.MinimumNArgs(1),
 	Long: ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		if fileExists(".gofl") {
+			fmt.Println("gofl project already initialized")
+			return
+		}
 		err := os.Mkdir("mobile", os.ModePerm)
 		fmt.Println("Created mobile directory")
 		if err != nil {
@@ -47,9 +52,24 @@ var initCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println(err.Error())
 		}
+
+		d1 := []byte("package: " + args[0])
+		err = ioutil.WriteFile(".gofl", d1, 0644)
+
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+}
+
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
