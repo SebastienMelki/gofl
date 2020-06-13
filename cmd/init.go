@@ -17,11 +17,10 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
 	"os/exec"
-
-	"github.com/spf13/cobra"
 )
 
 // initCmd represents the init command
@@ -41,36 +40,12 @@ var initCmd = &cobra.Command{
 			return
 		}
 
-
-		result := exec.Command("cd", path)
-
-		_, err = result.Output()
-
-		if err != nil {
-			return
-		}
-
-		result = exec.Command("flutter", "create", "mobile")
-
-		_, err = result.Output()
-
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-
-		err = os.Mkdir(path + "/" + "api", os.ModePerm)
-		if err != nil {
-		}
-
-		err = os.Mkdir(path + "/" + "protos", os.ModePerm)
-		if err != nil {
-		}
+		mobileInit(path)
+		apiInit(path)
+		protoInit(path)
 
 		packageName := []byte("package: " + args[0])
 		err = ioutil.WriteFile(".gofl", packageName, 0644)
-
 		if err != nil {
 		}
 	},
@@ -78,6 +53,39 @@ var initCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+}
+
+func mobileInit(path string) {
+	result := exec.Command("cd", path)
+
+	_, err := result.Output()
+
+	if err != nil {
+		return
+	}
+
+	result = exec.Command("flutter", "create", "mobile")
+
+	_, err = result.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+}
+
+func apiInit(path string) {
+	err := os.Mkdir(path + "/" + "api", os.ModePerm)
+	if err != nil {
+	}
+
+
+}
+
+func protoInit(path string) {
+	err := os.Mkdir(path + "/" + "protos", os.ModePerm)
+	if err != nil {
+	}
 }
 
 func fileExists(filename string) bool {
