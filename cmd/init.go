@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // initCmd represents the init command
@@ -43,7 +44,7 @@ var initCmd = &cobra.Command{
 
 		mobileInit(path)
 		apiInit(path, args[0])
-		protoInit(path)
+		protoInit(path,  args[0])
 
 		packageName := []byte("package: " + args[0])
 		err = ioutil.WriteFile(".gofl", packageName, 0644)
@@ -135,10 +136,89 @@ func main() {
 
 }
 
-func protoInit(path string) {
+func protoInit(path string, packageName string) {
 	err := os.Mkdir(path+"/"+"protos", os.ModePerm)
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+
+	template :=
+		`syntax = "proto3";
+
+// example protocol buffer
+
+package protos;
+
+option objc_class_prefix = "` + strings.ToUpper(packageName) + `";
+option java_package = "com.` + packageName + `.data.remote.proto";
+option java_outer_classname = "` + packageName + `Proto";
+
+enum AppPlatform {
+    APP_PLATFORM_UNSPECIFIED = 0;
+    ANDROID = 1;
+    IOS = 2;
+    WEB = 3;
+}
+
+enum BloodType {
+    O_POSITIVE = 0;
+    O_NEGATIVE = 1;
+    B_POSITIVE = 2;
+    B_NEGATIVE = 3;
+    A_POSITIVE = 4;
+    A_NEGATIVE = 5;
+    AB_POSITIVE = 6;
+    AB_NEGATIVE = 7;
+}
+
+enum AuthType {
+    EMAIL = 0;
+    MOBILE = 1;
+    FACEBOOK = 2;
+    TWITTER = 3;
+    GOOGLE = 4;
+    APPLE = 5;
+    GITHUB = 6;
+}
+
+
+message User {
+    string id = 1 [json_name="id"];
+    string firstName = 2 [json_name="first_name"];
+    string lastName = 3 [json_name="last_name"];
+    string email = 4 [json_name="email"];
+    string phoneNumber = 6 [json_name="phone_number"];
+    int64 createdOn = 7 [json_name="created_on"];
+    BloodType bloodType = 8 [json_name="blood_type"];
+}
+
+service Authentication {
+    rpc Login (LoginRequest) returns (LoginReply) {}
+}
+
+message LoginRequest {
+    AuthType authType = 1 [json_name="auth_type"];
+    string userName = 2 [json_name="user_name"];
+    string password = 3 [json_name="password"];
+    string facebookId = 4 [json_name="facebook_id"];
+    string mobileNumber = 5 [json_name="mobile_number"];
+    string otpCode = 6 [json_name="otp_code"];
+
+}
+
+message LoginReply {
+    string errorMessage = 1 [json_name="error_message"];
+    User user = 2 [json_name="user"];
+    string sessionId = 3 [json_name="session_id"];
+    int64 ttl = 4 [json_name="ttl"];
+}`
+
+	if !FileExists("./protos/example.proto") {
+		content := []byte(template)
+		err := ioutil.WriteFile("./protos/example.proto", content, 0644)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}
 }
 

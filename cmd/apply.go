@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -46,6 +47,7 @@ var applyCmd = &cobra.Command{
 		if err != nil {
 		}
 
+
 		result := exec.Command("bash", "-c", "protoc --go_out=plugins=grpc:"+path+"/api/protos -I"+path+"/protos "+path+"/protos/*.proto")
 
 		_, err = result.Output()
@@ -55,7 +57,7 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		result = exec.Command("bash", "-c", "protoc --dart_out=grpc:"+path+"/mobile/lib/protos -I"+path+"/protos "+path+"/protos/user.proto")
+		result = exec.Command("bash", "-c", "protoc --dart_out=grpc:"+path+"/mobile/lib/protos -I"+path+"/protos "+path+"/protos/*.proto")
 
 		_, err = result.Output()
 
@@ -76,55 +78,62 @@ func generateService(packageName string) {
 	}
 
 
-	file, err := os.Open("./protos/user.proto")
+	protoPaths, err := WalkMatch("./protos/", "*.proto")
 	if err != nil {
-		log.Fatal(err)
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	allTypes := ""
+	var services []string
 
-	template :=
-		`package services
+	for _, protoPath := range protoPaths {
+		file, err := os.Open("./" + protoPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		template :=
+			`package services
 
 import(
 	"context"
 	"` + packageName + `/protos"
 )`
 
-	currentService := ""
-	allTypes := ""
-	var services []string
+		currentService := ""
 
-	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "service") {
-			tokens := strings.Split(scanner.Text(), " ")
-			currentService = tokens[1]
-			allTypes += `type ` + currentService + "Service" + ` struct{}` + "\n"
-			services = append(services, currentService)
-		}
+		for scanner.Scan() {
+			if strings.Contains(scanner.Text(), "service") {
+				tokens := strings.Split(scanner.Text(), " ")
+				currentService = tokens[1]
+				allTypes += `type ` + currentService + "Service" + ` struct{}` + "\n"
+				services = append(services, currentService)
+			}
 
-		if strings.Contains(scanner.Text(), "rpc") {
+			if strings.Contains(scanner.Text(), "rpc") {
 
-			tokens := strings.Split(strings.TrimSpace(scanner.Text()), " ")
-			rpc := tokens[1]
-			input := strings.TrimPrefix(strings.TrimSuffix(tokens[2], ")"), "(")
-			output := strings.TrimPrefix(strings.TrimSuffix(tokens[4], ")"), "(")
-			serviceFile := template
-			serviceFile += "\n\n"
-			serviceFile +=
-	 			`func (s *` + currentService + "Service" + `) ` + rpc + `(ctx context.Context, in *protos.` + input + `) (*protos.` + output + `, error) {
+				tokens := strings.Split(strings.TrimSpace(scanner.Text()), " ")
+				rpc := tokens[1]
+				input := strings.TrimPrefix(strings.TrimSuffix(tokens[2], ")"), "(")
+				output := strings.TrimPrefix(strings.TrimSuffix(tokens[4], ")"), "(")
+				serviceFile := template
+				serviceFile += "\n\n"
+				serviceFile +=
+					`func (s *` + currentService + "Service" + `) ` + rpc + `(ctx context.Context, in *protos.` + input + `) (*protos.` + output + `, error) {
 	return &protos.` + output + `{
 	}, nil
 }`
-			content := []byte(serviceFile)
-			fileName := strings.ToLower(rpc) + ".go"
-			if !FileExists(servicesDirectoryName + "/" + fileName) {
-				err := ioutil.WriteFile(servicesDirectoryName + "/" + fileName, content, 0644)
-				if err != nil {
+				content := []byte(serviceFile)
+				fileName := strings.ToLower(rpc) + ".go"
+				if !FileExists(servicesDirectoryName + "/" + fileName) {
+					err := ioutil.WriteFile(servicesDirectoryName + "/" + fileName, content, 0644)
+					if err != nil {
+					}
 				}
-			}
 
+			}
 		}
 	}
 
@@ -138,10 +147,6 @@ import(
 	}
 
 	generateServerGo(packageName, services)
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
 }
 
 func generateServerGo(packageName string, services []string) {
@@ -206,4 +211,26 @@ func GetPackageName() string {
 
 	}
 	return ""
+}
+
+func WalkMatch(root string, pattern string) ([]string, error) {
+	var matches []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if matched, err := filepath.Match(pattern, filepath.Base(path)); err != nil {
+			return err
+		} else if matched {
+			matches = append(matches, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
